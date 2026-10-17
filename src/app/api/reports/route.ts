@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { calculateTriage } from '@/lib/triage'
+import { createReport, findTriaged, handleError, parseBody, parseQuery, publicView } from '@/lib/reportService'
+import { createReportSchema, listQuerySchema } from '@/lib/validation'
 
-// GET all reports
+export const dynamic = 'force-dynamic'
+
+// GET /api/reports - reports with live triage (responders).
+// Filters: area, status (comma list or "open"), priority, verified, bbox, sort.
 export async function GET(request: NextRequest) {
   try {
-    const { data, error } = await supabase
-      .from('emergency_reports')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(await findTriaged(parseQuery(request, listQuerySchema)))
+  } catch (err) {
+    return handleError(err)
   }
 }
 

@@ -12,7 +12,11 @@ import {
   saveReport,
   syncQueue
 } from '@/lib/offlineQueue'
+import { useRouter } from 'next/navigation'
+import SiteHeader from '@/components/common/SiteHeader'
+import ReportForm from '@/components/reports/ReportForm'
 
+// Stage 4 - Emergency Reporting System
 export default function ReportPage() {
   const [formData, setFormData] = useState({
     locationAddress: '',
@@ -203,13 +207,17 @@ export default function ReportPage() {
     )
   }
 
+  const router = useRouter()
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-cyan-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <Link href="/" className="text-gray-600 hover:text-gray-900 text-sm">
-            ← Back to Home
-          </Link>
+    <div className="page">
+      <SiteHeader />
+      <main className="mx-auto max-w-2xl px-4 py-6">
+        <h1 className="text-2xl font-bold">Request help</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Only the location is required. Answer what you can - it helps responders reach the most urgent cases first.
+        </p>
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          If a life is in danger and phone lines work, also call your local emergency number (Rescue 1122).
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-8">
@@ -356,8 +364,10 @@ export default function ReportPage() {
               {loading ? 'Submitting...' : 'Submit Emergency Report'}
             </button>
           </form>
+        <div className="mt-4">
+          <ReportForm onSubmitted={(report) => router.push(`/report/${report.id}?sent=1`)} />
         </div>
-      </div>
+      </main>
     </div>
   )
 }
