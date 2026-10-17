@@ -196,7 +196,9 @@ BEGIN
         ('emergency_reports', 'medical_needs'), ('emergency_reports', 'contact_info'),
         ('emergency_reports', 'priority_explanation'),
         ('shelters', 'address'), ('shelters', 'capacity'), ('shelters', 'contact_number'),
-        ('rescue_teams', 'team_leader'), ('rescue_teams', 'contact_number'))
+        ('shelters', 'current_occupancy'),
+        ('rescue_teams', 'team_leader'), ('rescue_teams', 'contact_number'),
+        ('rescue_teams', 'capabilities'))
   LOOP
     EXECUTE format('ALTER TABLE public.%I ALTER COLUMN %I DROP NOT NULL', col.table_name, col.column_name);
     RAISE NOTICE 'Made %.% optional', col.table_name, col.column_name;

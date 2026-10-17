@@ -116,7 +116,7 @@ export const demoShelters: Shelter[] = [
   { id: id(), name: 'Malir Relief Camp', location_lat: 24.901, location_lng: 67.19, address: null, area: 'Malir', capacity: 500, current_occupancy: 180, services: ['food', 'water', 'medical', 'power'], status: 'open', verified: true },
   { id: id(), name: 'Korangi Sports Complex', location_lat: 24.827, location_lng: 67.122, address: null, area: 'Korangi', capacity: 400, current_occupancy: 90, services: ['water', 'power'], status: 'open', verified: true },
   // Unverified - must NOT appear on the responder map.
-  { id: id(), name: 'Rumoured shelter at mosque', location_lat: 24.945, location_lng: 66.995, address: null, area: 'Orangi', capacity: null, current_occupancy: null, services: [], status: 'open', verified: false },
+  { id: id(), name: 'Rumoured shelter at mosque', location_lat: 24.945, location_lng: 66.995, address: null, area: 'Orangi', capacity: null, current_occupancy: 0, services: [], status: 'open', verified: false },
 ]
 
 export const demoTeams: RescueTeam[] = [

@@ -27,7 +27,7 @@ INSERT INTO shelters (name, location_lat, location_lng, area, capacity, current_
   ('Community Hall Gulshan', 24.918, 67.089, 'Gulshan-e-Iqbal', 150, 150, ARRAY['food', 'water']::TEXT[], 'full', true),
   ('Malir Relief Camp', 24.901, 67.19, 'Malir', 500, 180, ARRAY['food', 'water', 'medical', 'power']::TEXT[], 'open', true),
   ('Korangi Sports Complex', 24.827, 67.122, 'Korangi', 400, 90, ARRAY['water', 'power']::TEXT[], 'open', true),
-  ('Rumoured shelter at mosque', 24.945, 66.995, 'Orangi', NULL, NULL, '{}', 'open', false);
+  ('Rumoured shelter at mosque', 24.945, 66.995, 'Orangi', NULL, 0, '{}', 'open', false);
 
 INSERT INTO rescue_teams (team_name, team_type, capabilities, current_location_lat, current_location_lng, area, status, verified) VALUES
   ('Boat Team Alpha', 'boat', ARRAY['water rescue']::TEXT[], 24.865, 66.998, 'Lyari', 'assigned', true),
