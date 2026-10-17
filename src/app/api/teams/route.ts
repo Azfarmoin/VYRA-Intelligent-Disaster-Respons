@@ -1,0 +1,49 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
+
+// GET all teams
+export async function GET(request: NextRequest) {
+  try {
+    const { data, error } = await supabase
+      .from('rescue_teams')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data)
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// POST create new team
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+
+    const { data, error } = await supabase
+      .from('rescue_teams')
+      .insert({
+        team_name: body.team_name,
+        team_leader: body.team_leader,
+        contact_number: body.contact_number,
+        capabilities: body.capabilities || [],
+        current_location_lat: body.current_location_lat || null,
+        current_location_lng: body.current_location_lng || null,
+        status: 'available'
+      })
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data, { status: 201 })
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
