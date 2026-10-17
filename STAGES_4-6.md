@@ -15,11 +15,13 @@ Pages: `/report` (request help) · `/report/[id]` (reporter's status) · `/dashb
 
 Run these in **Supabase → SQL Editor**, in order:
 
-1. `supabase/migrations/002_stage4_6.sql`: adds the new report columns, the `report_events` audit table, `blocked_roads`, and `verified` flags on shelters and teams.
-   It also **fixes the live error** `infinite recursion detected in policy for relation "profiles"`, which currently stops `emergency_reports` from being read at all.
-2. `supabase/migrations/004_allow_optional_fields.sql`: the live database requires `reporter_id`, which blocks anonymous reports. This makes the optional columns optional again.
-3. `supabase/migrations/005_priority_score_range.sql`: the live database caps `priority_score` at 100, but Stage 6 scores can go higher (e.g. 137). This replaces the cap with "score ≥ 0".
-4. `supabase/migrations/003_demo_seed.sql` (optional): simulated demo data. Re-running it only replaces the demo rows.
+1. **`supabase/vyra_complete_schema.sql`**: the complete schema for Stages 1–6, based on the original `schema.sql`. It works on a new project and on the existing database (safe to re-run). It also fixes the live-database issues found during testing:
+   - the `infinite recursion detected in policy for relation "profiles"` error,
+   - `reporter_id` being required, which blocked anonymous reports,
+   - the old 0–100 cap on `priority_score` (Stage 6 scores can be higher, e.g. 137).
+2. **`supabase/migrations/003_demo_seed.sql`** (optional): simulated demo data. Re-running it only replaces the demo rows.
+
+`migrations/002`, `004` and `005` are earlier step-by-step versions of the same changes. You don't need them if you run the complete schema.
 
 Data mode: `VYRA_DATA_MODE=demo|supabase`. It defaults to `supabase` when `NEXT_PUBLIC_SUPABASE_URL` is set.
 
