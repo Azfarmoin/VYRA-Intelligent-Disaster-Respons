@@ -1,52 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { applyChange, detail, handleError, loadReport, parseBody } from '@/lib/reportService'
+import { statusUpdateSchema } from '@/lib/validation'
+import { OPEN_STATUSES } from '@/lib/constants'
 
-// GET single report
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export const dynamic = 'force-dynamic'
+
+type Ctx = { params: { id: string } }
+
+// GET /api/reports/:id - full report, live triage explanation and history (responders)
+export async function GET(_request: NextRequest, { params }: Ctx) {
   try {
-    const { data, error } = await supabase
-      .from('emergency_reports')
-      .select('*')
-      .eq('id', params.id)
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ report: await detail(params.id) })
+  } catch (err) {
+    return handleError(err)
   }
 }
 
-// PATCH update report status
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// PATCH /api/reports/:id - status update (kept for Stage 3 clients; same as /status)
+export async function PATCH(request: NextRequest, { params }: Ctx) {
   try {
-    const body = await request.json()
-
-    const { data, error } = await supabase
-      .from('emergency_reports')
-      .update({
-        status: body.status,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', params.id)
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const { status, note, by } = await parseBody(request, statusUpdateSchema)
+    const current = await loadReport(params.id)
+    const report = await applyChange(
+      params.id,
+      { status, resolved_at: OPEN_STATUSES.includes(status) ? null : new Date().toISOString() },
+      { action: 'status', actor: by, from: current.status, to: status, note }
+    )
+    return NextResponse.json({ report })
+  } catch (err) {
+    return handleError(err)
   }
 }
