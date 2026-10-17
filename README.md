@@ -1,4 +1,4 @@
-# ResQNet — Intelligent Disaster Response & Rescue Coordination
+# VYRA— Intelligent Disaster Response & Rescue Coordination
 
 <p align="center">
   <strong>Finding Who Needs Help Most.</strong>
