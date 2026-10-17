@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import AssignTeamModal from '@/components/AssignTeamModal'
 
 interface Report {
   id: string
@@ -15,11 +16,28 @@ interface Report {
   created_at: string
 }
 
+interface ReportDispatch {
+  id: string
+  status: string
+  assigned_at: string
+  rescue_teams: { team_name: string } | null
+}
+
 export default function DashboardPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('all')
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
+  const [assigningReport, setAssigningReport] = useState<Report | null>(null)
+  const [reportDispatches, setReportDispatches] = useState<ReportDispatch[]>([])
+
+  useEffect(() => {
+    if (!selectedReport) return setReportDispatches([])
+    fetch(`/api/dispatches?report_id=${selectedReport.id}`)
+      .then(res => (res.ok ? res.json() : []))
+      .then(setReportDispatches)
+      .catch(() => setReportDispatches([]))
+  }, [selectedReport])
 
   useEffect(() => {
     fetchReports()
@@ -93,6 +111,9 @@ export default function DashboardPage() {
             <div className="flex items-center gap-4">
               <Link href="/map" className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
                 View Map
+              </Link>
+              <Link href="/dispatches" className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                Dispatches
               </Link>
               <Link href="/resources" className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                 Resources
@@ -293,20 +314,55 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="pt-4 border-t">
-                  <button
-                    onClick={() => {
-                      console.log('Assign team to report:', selectedReport.id)
-                      // TODO: Implement team assignment
-                    }}
-                    className="w-full bg-teal-600 text-white py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors"
-                  >
-                    Assign Rescue Team
-                  </button>
+                  <label className="text-sm font-medium text-gray-500 mb-2 block">Team Assignments</label>
+                  {reportDispatches.length === 0 ? (
+                    <p className="text-sm text-gray-500 mb-3">No team assigned yet.</p>
+                  ) : (
+                    <ul className="space-y-1 mb-3">
+                      {reportDispatches.map(d => (
+                        <li key={d.id} className="text-sm text-gray-800 flex justify-between">
+                          <span>{d.rescue_teams?.team_name ?? 'Team'} · {new Date(d.assigned_at).toLocaleTimeString()}</span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {d.status.replace('_', ' ')}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setAssigningReport(selectedReport)}
+                      disabled={selectedReport.status === 'resolved'}
+                      className="flex-1 bg-teal-600 text-white py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50"
+                    >
+                      Assign Rescue Team
+                    </button>
+                    {reportDispatches.length > 0 && (
+                      <Link
+                        href="/dispatches"
+                        className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                      >
+                        Track
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      )}
+      {assigningReport && (
+        <AssignTeamModal
+          reportId={assigningReport.id}
+          reportLabel={`${assigningReport.location_address} · ${assigningReport.people_count} people · priority ${assigningReport.priority_score}`}
+          onClose={() => setAssigningReport(null)}
+          onAssigned={async () => {
+            setAssigningReport(null)
+            setSelectedReport(null)
+            await fetchReports()
+          }}
+        />
       )}
     </div>
   )

@@ -24,6 +24,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
+    if (!body.team_name) {
+      return NextResponse.json({ error: 'team_name is required' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('rescue_teams')
       .insert({
@@ -33,6 +37,8 @@ export async function POST(request: NextRequest) {
         capabilities: body.capabilities || [],
         current_location_lat: body.current_location_lat || null,
         current_location_lng: body.current_location_lng || null,
+        base_location: body.base_location || null,
+        team_size: body.team_size || 4,
         status: 'available'
       })
       .select()

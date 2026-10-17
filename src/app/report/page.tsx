@@ -3,6 +3,15 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import {
+  QueuedReport,
+  ReportPayload,
+  findPossibleDuplicate,
+  getQueuedReport,
+  isIndexedDbAvailable,
+  saveReport,
+  syncQueue
+} from '@/lib/offlineQueue'
 
 export default function ReportPage() {
   const [formData, setFormData] = useState({
@@ -17,48 +26,105 @@ export default function ReportPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+  const [result, setResult] = useState<'sent' | 'queued' | 'duplicate' | null>(null)
+  const [possibleDuplicate, setPossibleDuplicate] = useState<QueuedReport | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const buildPayload = async (): Promise<ReportPayload> => {
+    // getSession reads the locally stored session, so it also works offline
+    let reporterId: string | null = null
+    try {
+      const { data } = await supabase.auth.getSession()
+      reporterId = data.session?.user?.id ?? null
+    } catch {
+      reporterId = null
+    }
+
+    return {
+      reporter_id: reporterId,
+      location_lat: formData.locationLat,
+      location_lng: formData.locationLng,
+      location_address: formData.locationAddress,
+      people_count: formData.peopleCount,
+      immediate_danger: formData.immediateDanger,
+      injury_details: formData.injuryDetails || null,
+      medical_needs: formData.medicalNeeds || null,
+      contact_info: formData.contactInfo || null
+    }
+  }
+
+  const submitDirect = async (reportData: ReportPayload) => {
+    const response = await fetch('/api/reports', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(reportData)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to submit report')
+    }
+    setResult('sent')
+  }
+
+  const submit = async (skipDuplicateCheck: boolean) => {
     setLoading(true)
     setError('')
 
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
+      const reportData = await buildPayload()
 
-      const reportData = {
-        reporter_id: user?.id || null,
-        location_lat: formData.locationLat,
-        location_lng: formData.locationLng,
-        location_address: formData.locationAddress,
-        people_count: formData.peopleCount,
-        immediate_danger: formData.immediateDanger,
-        injury_details: formData.injuryDetails || null,
-        medical_needs: formData.medicalNeeds || null,
-        contact_info: formData.contactInfo || null
+      if (!isIndexedDbAvailable()) {
+        await submitDirect(reportData)
+        return
       }
 
-      const response = await fetch('/api/reports', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(reportData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to submit report')
+      if (!skipDuplicateCheck) {
+        const duplicate = await findPossibleDuplicate(reportData)
+        if (duplicate) {
+          setPossibleDuplicate(duplicate)
+          return
+        }
       }
+      setPossibleDuplicate(null)
 
-      setSuccess(true)
+      // Save on the device first so nothing is lost if the upload fails
+      const entry = await saveReport(reportData)
+
+      if (navigator.onLine) {
+        await syncQueue()
+      }
+      const stored = await getQueuedReport(entry.client_id)
+      if (stored?.status === 'failed') {
+        throw new Error(stored.last_error || 'Failed to submit report')
+      }
+      setResult(stored?.status === 'synced' ? (stored.duplicate ? 'duplicate' : 'sent') : 'queued')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit report. Please try again.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await submit(false)
+  }
+
+  const resetForm = () => {
+    setFormData({
+      locationAddress: '',
+      locationLat: null,
+      locationLng: null,
+      peopleCount: 1,
+      immediateDanger: false,
+      injuryDetails: '',
+      medicalNeeds: '',
+      contactInfo: ''
+    })
+    setResult(null)
+    setError('')
   }
 
   const handleGetLocation = () => {
@@ -81,25 +147,57 @@ export default function ReportPage() {
     }
   }
 
-  if (success) {
+  if (result) {
+    const content = {
+      sent: {
+        title: 'Report Submitted',
+        body: 'Your emergency report has been submitted successfully. Responders have been notified.',
+        iconBg: 'bg-green-100',
+        iconColor: 'text-green-600'
+      },
+      duplicate: {
+        title: 'Report Already Received',
+        body: 'This report had already reached responders, so it was not submitted twice.',
+        iconBg: 'bg-green-100',
+        iconColor: 'text-green-600'
+      },
+      queued: {
+        title: 'Saved Offline',
+        body:
+          'You appear to be offline. Your report is saved on this device and will upload automatically as soon as a connection is available. Keep this page or app open if you can. If lives are at risk, also try calling emergency services.',
+        iconBg: 'bg-yellow-100',
+        iconColor: 'text-yellow-600'
+      }
+    }[result]
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-teal-50 to-cyan-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <div className={`w-16 h-16 ${content.iconBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+            <svg className={`w-8 h-8 ${content.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {result === 'queued' ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              )}
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Report Submitted</h2>
-          <p className="text-gray-600 mb-6">
-            Your emergency report has been submitted successfully. Responders have been notified.
-          </p>
-          <Link
-            href="/"
-            className="inline-block px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors"
-          >
-            Return Home
-          </Link>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{content.title}</h2>
+          <p className="text-gray-600 mb-6">{content.body}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={resetForm}
+              className="px-6 py-3 bg-white text-teal-600 font-semibold rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors"
+            >
+              New Report
+            </button>
+            <Link
+              href="/"
+              className="inline-block px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors"
+            >
+              Return Home
+            </Link>
+          </div>
         </div>
       </div>
     )
@@ -118,13 +216,41 @@ export default function ReportPage() {
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Submit Emergency Report</h1>
             <p className="text-gray-600">
-              Provide details about the emergency situation. Responders will be notified immediately.
+              Provide details about the emergency situation. Responders will be notified immediately. No connection? Your report is saved on this device and sent automatically once you are back online.
             </p>
           </div>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
               <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
+          {possibleDuplicate && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md" role="alert">
+              <p className="text-yellow-800 text-sm font-medium mb-1">Possible duplicate report</p>
+              <p className="text-yellow-700 text-sm mb-3">
+                An identical report was saved on this device at{' '}
+                {new Date(possibleDuplicate.created_at).toLocaleTimeString()} (
+                {possibleDuplicate.status === 'synced' ? 'already uploaded' : 'waiting to upload'}). Submitting again
+                may send responders the same case twice.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPossibleDuplicate(null)}
+                  className="px-3 py-1.5 bg-white border border-yellow-300 text-yellow-800 rounded-md text-sm font-medium hover:bg-yellow-100"
+                >
+                  Don&apos;t submit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void submit(true)}
+                  className="px-3 py-1.5 bg-yellow-600 text-white rounded-md text-sm font-medium hover:bg-yellow-700"
+                >
+                  Submit anyway
+                </button>
+              </div>
             </div>
           )}
 
