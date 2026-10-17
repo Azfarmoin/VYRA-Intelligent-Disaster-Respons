@@ -6,6 +6,7 @@ import { triageReport } from '../src/lib/triage'
 
 const lit = (v: unknown): string => {
   if (v == null) return 'NULL'
+  if (Array.isArray(v) && v.length === 0) return "'{}'"
   if (typeof v === 'number' || typeof v === 'boolean') return String(v)
   if (Array.isArray(v) && v.every((x) => typeof x === 'string')) return `ARRAY[${v.map(lit).join(', ')}]::TEXT[]`
   if (typeof v === 'object') return `${lit(JSON.stringify(v))}::JSONB`
@@ -25,7 +26,7 @@ const cols = [
 
 const reportRows = reports.map((r) => {
   const t = triageReport(r, { now: new Date(now) })
-  const values = cols.map((c) => (c === 'priority_score' ? String(t.score) : c === 'status' ? `${lit(r.status)}::report_status` : lit(r[c])))
+  const values = cols.map((c) => (c === 'priority_score' ? String(t.score) : lit(r[c])))
   return `  (${values.join(', ')}, ${ago(r.resolved_at, now)}, ${ago(r.created_at, now)}, ${ago(r.created_at, now)})`
 })
 
@@ -45,10 +46,10 @@ INSERT INTO report_events (report_id, action, actor, note, created_at)
 SELECT id, 'created', 'seed', 'Simulated demo report', created_at FROM emergency_reports WHERE client_id LIKE 'demo-seed-%';
 
 INSERT INTO shelters (name, location_lat, location_lng, area, capacity, current_occupancy, services, status, verified) VALUES
-${demoShelters.map((s) => `  (${[s.name, s.location_lat, s.location_lng, s.area, s.capacity, s.current_occupancy, s.services].map(lit).join(', ')}, ${lit(s.status)}::shelter_status, ${s.verified})`).join(',\n')};
+${demoShelters.map((s) => `  (${[s.name, s.location_lat, s.location_lng, s.area, s.capacity, s.current_occupancy, s.services].map(lit).join(', ')}, ${lit(s.status)}, ${s.verified})`).join(',\n')};
 
 INSERT INTO rescue_teams (team_name, team_type, capabilities, current_location_lat, current_location_lng, area, status, verified) VALUES
-${demoTeams.map((t) => `  (${[t.team_name, t.team_type, t.capabilities, t.current_location_lat, t.current_location_lng, t.area].map(lit).join(', ')}, ${lit(t.status)}::team_status, ${t.verified})`).join(',\n')};
+${demoTeams.map((t) => `  (${[t.team_name, t.team_type, t.capabilities, t.current_location_lat, t.current_location_lng, t.area].map(lit).join(', ')}, ${lit(t.status)}, ${t.verified})`).join(',\n')};
 
 INSERT INTO blocked_roads (description, reason, area, path, verified) VALUES
 ${demoRoadBlocks.map((b) => `  (${[b.description, b.reason, b.area, b.path, b.verified].map(lit).join(', ')})`).join(',\n')};

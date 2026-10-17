@@ -9,9 +9,18 @@
 --    give later role checks a SECURITY DEFINER helper that bypasses RLS.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.current_user_role()
-RETURNS user_role
+RETURNS TEXT
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$ SELECT role FROM public.profiles WHERE id = auth.uid() $$;
+AS $$ SELECT role::TEXT FROM public.profiles WHERE id = auth.uid() $$;
+
+-- Needed by the updated_at triggers below (exists if schema.sql was run; harmless otherwise).
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 DO $$
 DECLARE p record;
@@ -34,7 +43,13 @@ CREATE POLICY "Responders and admins can update reports" ON emergency_reports FO
 -- ---------------------------------------------------------------------------
 -- 1. Stage 4 - structured emergency reports
 -- ---------------------------------------------------------------------------
-ALTER TYPE report_status ADD VALUE IF NOT EXISTS 'cancelled';
+-- Allow the 'cancelled' status whether status is the report_status enum or plain text.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'report_status') THEN
+    ALTER TYPE report_status ADD VALUE IF NOT EXISTS 'cancelled';
+  END IF;
+END $$;
 
 ALTER TABLE emergency_reports
   ADD COLUMN IF NOT EXISTS client_id TEXT,                       -- generated on the device; makes retries idempotent
@@ -64,7 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_emergency_reports_area ON emergency_reports(area)
 -- 2. Stage 6 - audit history (status changes, verification, priority overrides)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS report_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   report_id UUID NOT NULL REFERENCES emergency_reports(id) ON DELETE CASCADE,
   action TEXT NOT NULL CHECK (action IN ('created', 'status', 'verify', 'override', 'override_cleared')),
   actor TEXT NOT NULL DEFAULT 'system',
@@ -95,7 +110,7 @@ ALTER TABLE rescue_teams
   ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS blocked_roads (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   description TEXT NOT NULL,
   reason TEXT NOT NULL DEFAULT 'other' CHECK (reason IN ('flooding', 'debris', 'collapse', 'other')),
   area TEXT,
