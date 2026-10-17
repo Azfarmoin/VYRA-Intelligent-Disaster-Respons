@@ -24,11 +24,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
+    if (!body.resource_type) {
+      return NextResponse.json({ error: 'resource_type is required' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('resources')
       .insert({
         resource_type: body.resource_type,
-        quantity: body.quantity,
+        name: body.name || null,
+        quantity: body.quantity || 1,
+        notes: body.notes || null,
         team_id: body.team_id || null,
         status: 'available'
       })
