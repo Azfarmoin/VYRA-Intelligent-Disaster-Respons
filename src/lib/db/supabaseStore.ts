@@ -21,7 +21,12 @@ function fail(error: { message: string; code?: string } | null, what: string): n
 export function createSupabaseStore(): DataStore {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const db: SupabaseClient = createClient(url, key, { auth: { persistSession: false } })
+  const db: SupabaseClient = createClient(url, key, {
+    auth: { persistSession: false },
+    // Next.js 14 caches fetch() in route handlers (even across restarts, in .next/cache).
+    // Emergency data must always be live, so opt every Supabase request out of that cache.
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
+  })
 
   return {
     mode: 'supabase',
