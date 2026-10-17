@@ -17,7 +17,8 @@ Run these in **Supabase → SQL Editor**, in order:
 
 1. `supabase/migrations/002_stage4_6.sql`: adds the new report columns, the `report_events` audit table, `blocked_roads`, and `verified` flags on shelters and teams.
    It also **fixes the live error** `infinite recursion detected in policy for relation "profiles"`, which currently stops `emergency_reports` from being read at all.
-2. `supabase/migrations/003_demo_seed.sql` (optional): simulated demo data. Re-running it only replaces the demo rows.
+2. `supabase/migrations/004_allow_optional_fields.sql`: the live database requires `reporter_id`, which blocks anonymous reports. This makes the optional columns optional again.
+3. `supabase/migrations/003_demo_seed.sql` (optional): simulated demo data. Re-running it only replaces the demo rows.
 
 Data mode: `VYRA_DATA_MODE=demo|supabase`. It defaults to `supabase` when `NEXT_PUBLIC_SUPABASE_URL` is set.
 
