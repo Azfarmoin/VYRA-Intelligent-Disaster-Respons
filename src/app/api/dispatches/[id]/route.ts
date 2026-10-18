@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/serverDb'
 import {
   ACTIVE_DISPATCH_STATUSES as ACTIVE,
   DISPATCH_SELECT,

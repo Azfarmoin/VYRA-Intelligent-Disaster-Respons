@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/serverDb'
 import { matchTeamsToCase } from '@/lib/matching'
 
 // GET ranked team suggestions for a report

@@ -1,4 +1,4 @@
-# ResQNet Project Plan
+# VYRA Project Plan
 
 ## Stage 1: Project Scope and Features
 

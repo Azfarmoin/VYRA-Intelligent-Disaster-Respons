@@ -2,9 +2,9 @@
 --
 -- The live database requires reporter_id (NOT NULL), unlike supabase/schema.sql.
 -- That blocks every anonymous emergency report ("null value in column reporter_id
--- ... violates not-null constraint") and also made 003_demo_seed.sql fail.
+-- ... violates not-null constraint") and also made the demo seed fail.
 -- People in an emergency must be able to ask for help without logging in, so these
--- columns are optional by design. Run this, then re-run 003_demo_seed.sql.
+-- columns are optional by design. run this, then re-run seed/vyra_full_seed.sql.
 
 DO $$
 DECLARE

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/serverDb'
 
 const EDITABLE_FIELDS = ['description', 'location_lat', 'location_lng', 'radius_km', 'severity', 'active']
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import { pickerIcon } from '../map/markers'
 import { DEFAULT_CENTER } from '@/lib/constants'
+import Icon from '@/components/ui/Icon'
 
 export interface PickedLocation {
   lat: number
@@ -57,39 +58,44 @@ export default function LocationPicker({ value, onChange }: { value: PickedLocat
   const pickManual = (p: { lat: number; lng: number }) => onChange({ lat: p.lat, lng: p.lng, source: 'manual' })
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={useGps} className="btn-primary" disabled={gps.state === 'loading'}>
-          📍 {gps.state === 'loading' ? 'Locating...' : 'Use my current location'}
+          <Icon name="pin" size={18} />
+          {gps.state === 'loading' ? 'Locating...' : 'Use my current location'}
         </button>
-        <span className="text-sm text-gray-500">or tap the map / drag the pin</span>
+        <span className="hint">or tap the map, or drag the pin</span>
       </div>
       {gps.message && (
-        <p className={`text-sm ${gps.state === 'error' ? 'text-red-700' : 'text-gray-600'}`} role="status">
+        <p className={`flex items-start gap-1.5 text-sm font-semibold ${gps.state === 'error' ? 'text-critical-700' : 'text-ink-700'}`} role="status">
+          <Icon name={gps.state === 'error' ? 'alert' : 'info'} size={16} className="mt-0.5 shrink-0" />
           {gps.message}
         </p>
       )}
-      <div className="h-64 overflow-hidden rounded-lg border border-gray-300 sm:h-72">
-        <MapContainer center={value ? [value.lat, value.lng] : DEFAULT_CENTER} zoom={value ? 15 : 11} className="h-full w-full">
-          <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <ClickToPlace onPick={pickManual} />
-          <FlyTo position={value} />
-          {value && (
-            <Marker
-              position={[value.lat, value.lng]}
-              icon={pickerIcon}
-              draggable
-              eventHandlers={{ dragend: (e) => pickManual(e.target.getLatLng()) }}
-            />
-          )}
-        </MapContainer>
+      <div className="clay-sm overflow-hidden p-1.5" style={{ borderRadius: 22 }}>
+        <div className="h-64 overflow-hidden sm:h-80" style={{ borderRadius: 16 }}>
+          <MapContainer center={value ? [value.lat, value.lng] : DEFAULT_CENTER} zoom={value ? 15 : 11} className="h-full w-full">
+            <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <ClickToPlace onPick={pickManual} />
+            <FlyTo position={value} />
+            {value && (
+              <Marker
+                position={[value.lat, value.lng]}
+                icon={pickerIcon}
+                draggable
+                eventHandlers={{ dragend: (e) => pickManual(e.target.getLatLng()) }}
+              />
+            )}
+          </MapContainer>
+        </div>
       </div>
       {value ? (
-        <p className="text-xs text-gray-500">
-          {value.lat.toFixed(5)}, {value.lng.toFixed(5)} · {value.source === 'gps' ? 'from GPS' : 'selected on map'}
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-success-800" role="status">
+          <Icon name="check" size={16} />
+          Location set: {value.lat.toFixed(5)}, {value.lng.toFixed(5)} ({value.source === 'gps' ? 'from GPS' : 'selected on map'})
         </p>
       ) : (
-        <p className="text-xs text-amber-700">No location selected yet.</p>
+        <p className="hint">No location selected yet.</p>
       )}
     </div>
   )

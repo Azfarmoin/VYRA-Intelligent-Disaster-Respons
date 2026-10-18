@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/serverDb'
+import { ACTIVE_DISPATCH_STATUSES } from '@/lib/dispatch'
+
+const TEAM_STATUSES = ['available', 'unavailable', 'assigned']
 
 const EDITABLE_FIELDS = [
   'team_name',
@@ -25,6 +28,26 @@ export async function PATCH(
       if (field in body) update[field] = body[field]
     }
 
+    if ('status' in update) {
+      if (!TEAM_STATUSES.includes(update.status as string)) {
+        return NextResponse.json({ error: `Invalid status: ${update.status}` }, { status: 400 })
+      }
+      // Assignment is owned by dispatches: a team on a mission is freed by completing it, not by a manual toggle.
+      const { data: current } = await supabase.from('rescue_teams').select('status').eq('id', params.id).maybeSingle()
+      if (current?.status === 'assigned' && update.status !== 'assigned') {
+        return NextResponse.json({ error: 'This team is on a mission. Complete or cancel the mission first.' }, { status: 409 })
+      }
+      if (update.status === 'assigned') {
+        return NextResponse.json({ error: 'Teams are assigned by creating a dispatch.' }, { status: 400 })
+      }
+    }
+    if ('team_name' in update && !String(update.team_name ?? '').trim()) {
+      return NextResponse.json({ error: 'team_name cannot be empty' }, { status: 400 })
+    }
+    if (!Object.keys(update).length) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('rescue_teams')
       .update(update)
@@ -33,7 +56,8 @@ export async function PATCH(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      const missing = error.code === 'PGRST116'
+      return NextResponse.json({ error: missing ? 'Team not found' : error.message }, { status: missing ? 404 : 500 })
     }
 
     return NextResponse.json(data)
@@ -48,6 +72,15 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { data: active } = await supabase
+      .from('dispatches')
+      .select('id')
+      .eq('team_id', params.id)
+      .in('status', ACTIVE_DISPATCH_STATUSES)
+    if (active?.length) {
+      return NextResponse.json({ error: 'This team is on a mission and cannot be deleted.' }, { status: 409 })
+    }
+
     const { error } = await supabase.from('rescue_teams').delete().eq('id', params.id)
 
     if (error) {
